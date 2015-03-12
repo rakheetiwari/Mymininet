@@ -1,0 +1,11 @@
+status: 200
+content-location: http://192.168.1.1:8080/controller/nb/v2/flowprogrammer/default/node/OF/00:00:00:00:00:00:00:06
+set-cookie: JSESSIONIDSSO=B2D2DA33AB3D35D588F1D759360DA74A;
+ Path=/, JSESSIONID=8BD31AA7D2EAABA78F08E3D3A0A607BC; Path=/
+expires: Wed, 31 Dec 1969 16:00:00 PST
+server: Apache-Coyote/1.1
+cache-control: private
+date: Fri, 26 Sep 2014 06:03:25 GMT
+content-type: application/json
+
+{"flowConfig":[{"installInHw":"true","name":"__Punt ARP__","node":{"id":"00:00:00:00:00:00:00:06","type":"OF"},"priority":"1","etherType":"0x806","actions":["CONTROLLER"]},{"installInHw":"true","name":"__Punt LLDP__","node":{"id":"00:00:00:00:00:00:00:06","type":"OF"},"priority":"1","etherType":"0x88CC","actions":["CONTROLLER"]},{"installInHw":"true","name":"__Catch-All Drop__","node":{"id":"00:00:00:00:00:00:00:06","type":"OF"},"priority":"0","actions":["DROP"]}]}

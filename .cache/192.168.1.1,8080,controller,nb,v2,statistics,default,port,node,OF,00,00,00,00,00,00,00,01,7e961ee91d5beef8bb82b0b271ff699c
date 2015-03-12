@@ -1,0 +1,11 @@
+status: 200
+content-location: http://192.168.1.1:8080/controller/nb/v2/statistics/default/port/node/OF/00:00:00:00:00:00:00:01
+set-cookie: JSESSIONIDSSO=75BF18F390F66DB0AE0BA9C7D2934AF0;
+ Path=/, JSESSIONID=5518EA17A9AA1A621691791F64F476E8; Path=/
+expires: Wed, 31 Dec 1969 16:00:00 PST
+server: Apache-Coyote/1.1
+cache-control: private
+date: Thu, 30 Oct 2014 18:27:32 GMT
+content-type: application/json
+
+{"node":{"id":"00:00:00:00:00:00:00:01","type":"OF"},"portStatistic":[{"nodeConnector":{"node":{"id":"00:00:00:00:00:00:00:01","type":"OF"},"id":"3","type":"OF"},"receivePackets":788921,"transmitPackets":22901,"receiveBytes":85677946,"transmitBytes":58138322,"receiveDrops":0,"transmitDrops":0,"receiveErrors":0,"transmitErrors":0,"receiveFrameError":0,"receiveOverRunError":0,"receiveCrcError":0,"collisionCount":0},{"nodeConnector":{"node":{"id":"00:00:00:00:00:00:00:01","type":"OF"},"id":"1","type":"OF"},"receivePackets":11578,"transmitPackets":11624,"receiveBytes":33794044,"transmitBytes":766736,"receiveDrops":0,"transmitDrops":0,"receiveErrors":0,"transmitErrors":0,"receiveFrameError":0,"receiveOverRunError":0,"receiveCrcError":0,"collisionCount":0},{"nodeConnector":{"node":{"id":"00:00:00:00:00:00:00:01","type":"OF"},"id":"2","type":"OF"},"receivePackets":11434,"transmitPackets":777473,"receiveBytes":24350396,"transmitBytes":84921738,"receiveDrops":0,"transmitDrops":0,"receiveErrors":0,"transmitErrors":0,"receiveFrameError":0,"receiveOverRunError":0,"receiveCrcError":0,"collisionCount":0},{"nodeConnector":{"node":{"id":"00:00:00:00:00:00:00:01","type":"OF"},"id":"0","type":"SW"},"receivePackets":0,"transmitPackets":34,"receiveBytes":0,"transmitBytes":3400,"receiveDrops":0,"transmitDrops":0,"receiveErrors":0,"transmitErrors":0,"receiveFrameError":0,"receiveOverRunError":0,"receiveCrcError":0,"collisionCount":0}]}

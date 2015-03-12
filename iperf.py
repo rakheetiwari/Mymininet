@@ -12,6 +12,12 @@ from mininet.node import RemoteController
 from mininet.link import TCIntf
 from mininet.util import custom
 from time import sleep
+import os,pickle,sys
+import operator,timeit
+from odl_rest import *
+from Flow_Install import *
+import get_all_edges
+from time import sleep
 
 class MyTopo( Topo ):
     "Simple topology example."
@@ -159,9 +165,10 @@ def perfTest():
     net.ping((h1, h2))
     net.ping((h3, h20))   
 
-    sleep(20)
+    sleep(2)
 
-    #Call the Flow-Install.py function
+    print "Executing the program to for Installing Flows"
+    os.system('python Flow_Install.py')
 
     print "Testing bandwidth between h1 and h2"
     h1,h2 = net.getNodeByName('h1', 'h2')

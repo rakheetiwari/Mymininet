@@ -1,0 +1,11 @@
+status: 200
+content-location: http://192.168.1.1:8080/controller/nb/v2/statistics/default/flow
+set-cookie: JSESSIONIDSSO=5B2B7ED021FC94677217390430AC84C7;
+ Path=/, JSESSIONID=B26801A0153FB90F1E11290205EE59D6; Path=/
+expires: Wed, 31 Dec 1969 16:00:00 PST
+server: Apache-Coyote/1.1
+cache-control: private
+date: Tue, 14 Oct 2014 19:37:45 GMT
+content-type: application/json
+
+{"flowStatistics":[]}

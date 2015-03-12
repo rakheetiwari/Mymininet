@@ -1,18 +1,23 @@
 """Custom topology example"""
-
 from mininet.topo import Topo
 from functools import partial
 from mininet.net import Mininet
 from mininet.node import CPULimitedHost
 from mininet.link import TCLink
+from mininet.util import custom
 from mininet.log import lg, setLogLevel
 from mininet.cli import CLI
 from mininet.util import dumpNodeConnections
 from mininet.node import RemoteController
 from mininet.link import TCIntf
-from mininet.util import custom
+from odl_rest import *
+from Flow_Install import *
+import get_all_edges
 from time import sleep
-
+import random
+import os,pickle,sys
+import operator,timeit
+ 
 class MyTopo( Topo ):
     "Simple topology example."
 
@@ -21,7 +26,7 @@ class MyTopo( Topo ):
 
         # Initialize topology
         Topo.__init__( self )
-
+        
         # Add hosts and switches
         h1 = self.addHost( 'h1', ip='10.0.1.1/24', defaultRoute='via 10.0.1.1', sched='rt' )
         h2 = self.addHost( 'h2', ip='10.0.2.1/24', defaultRoute='via 10.0.2.1', sched='rt' )
@@ -143,37 +148,126 @@ class MyTopo( Topo ):
         self.addLink( 's22', 's23', bw=10, delay='5ms', max_queue_size=1000 )
         self.addLink( 's23', 's24', bw=10, delay='5ms', max_queue_size=1000 )
 
-def connectionSet():
-    with open('/home/mininet/mininet/custom/20connections.txt', 'r') as content_file:
+Links_Discard = []
 
+def iPerfTest():
+    with open('/home/mininet/mininet/custom/Mymininet/80connections.txt', 'r') as content_file:
      for line in content_file:
-
             data = line.strip().split(",")
-
             node_id_1 = data[0]
-            node_id_2 = data[1]
-           
+            node_id_2 = data[1]           
             node_id_1 =  node_id_1.split(':')
             node_id_2 =  node_id_2.split(':')
-
             node_id_1 =  node_id_1[-1].lstrip("0")
             node_id_2 =  node_id_2[-1].lstrip("0")
-
-            print node_id_1
-            print node_id_2
-
-            print "Testing bandwidth between" + node_id_1 + " and "+ node_id_2
-
+            print "Testing bandwidth between " + node_id_1 + " and " + node_id_2
             node_id_1 = 'h'+node_id_1                      
             node_id_2 = 'h'+node_id_2
-
-           # print node_id_1
-           # print node_id_2
-            
             h1,h2 = net.getNodeByName(node_id_1, node_id_2)
-            net.iperf((h1, h2))
+            results = net.iperf((h1, h2))
+            with open('/home/mininet/mininet/custom/Mymininet/iperf_results.txt', 'a') as f:
+               f.write('%r\n' % str(results))
+               f.close()
+            print results            
+            
+def configLinkDown():    
+    with open('/home/mininet/mininet/custom/Mymininet/disastersWMD_ATT.txt', 'r') as content_file:
+        linedict = {}
+        for line in content_file:
+            data = line.strip().split(",")            
+            links, prob = data[1:-1], data[-1] 
+            links = [links[i:i+2] for i in range(0, len(links), 2)]
+            
+            for i in range(0, len(links), 1):  #for iterating each elemnet in links by incrementing 1 at a time
+                if tuple(links[i]) not in linedict: # checking whether element is already present in dictionary or not
+                   linedict[tuple(links[i])] = [prob] #if not present then add it
+                else: #if already present then add value of already present key in dictionary using append function
+                   linedict[tuple(links[i])].append(prob)                
+        for key in linedict.keys(): #iterating each key in dictionary
+             linedict[key]=sum(map(float, linedict[key])) #map function is used for converting each string element to float value and then taking sum of all values        
+        counter = 0
+        linedict = sorted(linedict.iteritems(), key=operator.itemgetter(1),reverse=True)
+                
+        for w in random.sample(linedict,3):          
+            node_id_1 = 's'+w[0][0]
+            node_id_2 = 's'+w[0][1]                
+            Links_List= []
+            links_tuple = ()
+            Links_List.append(node_id_1)
+            Links_List.append(node_id_2)
+ 
+            links_tuple = tuple(Links_List)        
+            Links_Discard.append(links_tuple)
+            print "Tearing down the link between " + node_id_1 + " and " + node_id_2 
+            net.configLinkStatus( node_id_1, node_id_2, 'down' )
+        
+def configLinkUp():            
+          for i in range(len(Links_Discard)): 
+            node_id_1 = Links_Discard[i][0]
+            node_id_2 = Links_Discard[i][1]
+            print "Restoring the link between " + node_id_1 + " and " + node_id_2
+            net.configLinkStatus( node_id_1, node_id_2, 'up' )
 
-def perfTest():
+def PollController():   
+    print "Seting time to record the flow install time"
+    start = time.time()
+    print "Executing the program to for Installing Flows"
+    os.system('python Flow_Install_80.py')
+    elapsed = (time.time() - start)
+    print "time elapsed after 1st set of Flow Installation",elapsed
+
+    iPerfTest()
+    
+    os.system('python get_all_edges.py') # Get the topology information     
+    configLinkDown() #Tearing the link down
+
+    start1 = time.time()
+
+    os.system('python get_all_edges.py') # Get the topology information after disaster.   
+    os.system('python Flow_Delete.py')  # Delete 20% of the flows   
+    print "Installing 1st set of flows"
+    os.system('python Flow_Install_80_1.py') #Installing First new set of flows
+    print "Re-Installing the disrupted flows"
+    os.system('python Flow_Install_80.py') # Re-install the disrutped flows
+    elapsed1 = (time.time() - start1)
+    print "time elapsed after 1st set of disruption-restore",elapsed1
+    #iPerfTest()
+
+    print "Second set of delay starts here"
+     
+    configLinkUp() #Bring the links backup and again poll the controller
+   
+    start2 = time.time()
+    os.system('python get_all_edges.py') #Get the topology information after disaster
+    os.system('python Flow_Delete.py') #Delete 20% of the flows  
+    print "Installing 2nd set of flows"
+    os.system('python Flow_Install_80_2.py') #Installing 2nd new set of flows
+    print "Re-Installing the disrupted flows" 
+    os.system('python Flow_Install_80.py') #Re-install the disrutped flows
+    elapsed2 = (time.time() - start2)
+    print "time elapsed after 2nd set of disruption-restore",elapsed2
+    #iPerfTest()
+
+    print "Second set of delay starts here"
+
+    configLinkDown() #Bring the links backup and again poll the controller
+
+    start3 = time.time()
+    os.system('python get_all_edges.py')
+    os.system('python Flow_Delete.py')
+    print "Installing 3rd set of flows"
+    os.system('python Flow_Install_80_3.py')
+    print "Re-Installing the disrupted flows"
+    os.system('python Flow_Install_80.py') # Re-install the disrutped flows
+    elapsed3 = (time.time() - start3)
+    print "time elapsed after 3rd set of disruption-restore",elapsed3
+
+    configLinkUp() #Bring the links backup and again poll the controller
+    
+    #iPerfTest()
+
+    
+def ODL():
     topo = MyTopo()
     global net
     net = Mininet(topo, controller=partial(RemoteController, ip='192.168.1.1', port=6633), link=TCLink, host=CPULimitedHost)
@@ -185,101 +279,40 @@ def perfTest():
 
     print "Testing network connectivity"
     h1,h2 = net.getNodeByName('h1', 'h2')
-    h3,h20 = net.getNodeByName('h3', 'h20')
-    #h4,h12 = net.getNodeByName('h4', 'h12')
-    #h11,h19 = net.getNodeByName('h11', 'h19')
-    #h13,h22 = net.getNodeByName('h13', 'h22')
-    #h16,h20 = net.getNodeByName('h16', 'h20')
-    #h17,h23 = net.getNodeByName('h17', 'h23')
-    #h18,h21 = net.getNodeByName('h18', 'h21')
-    #h22,h24 = net.getNodeByName('h22', 'h24')
+    h3,h4 = net.getNodeByName('h3', 'h4')
+    h5,h6 = net.getNodeByName('h5', 'h6')
+    h7,h8 = net.getNodeByName('h7', 'h8')
+    h9,h10 = net.getNodeByName('h9', 'h10')
+    h11,h12 = net.getNodeByName('h11', 'h12')
+    h13,h14 = net.getNodeByName('h13', 'h14')
+    h15,h16 = net.getNodeByName('h15', 'h16')
+    h17,h18 = net.getNodeByName('h17', 'h18')
+    h19,h20 = net.getNodeByName('h19', 'h20')
+    h21,h22 = net.getNodeByName('h21', 'h22')
+    h23,h24 = net.getNodeByName('h23', 'h24')
     
-    net.ping((h1, h2))
-    net.ping((h3, h20))
-    '''net.ping((h4, h12))
-    net.ping((h11, h19))
-    net.ping((h13, h22))
-    net.ping((h16, h20))
-    net.ping((h17, h23))
-    net.ping((h18, h21))
-    net.ping((h22, h24))'''
+    h1.cmdPrint('ping -c1', h2.IP()) 
+    h3.cmdPrint('ping -c1', h4.IP())
+    h5.cmdPrint('ping -c1', h6.IP())
+    h7.cmdPrint('ping -c1', h8.IP())
+    h9.cmdPrint('ping -c1', h10.IP())
+    h11.cmdPrint('ping -c1', h12.IP())
+    h13.cmdPrint('ping -c1', h14.IP())
+    h15.cmdPrint('ping -c1', h16.IP())
+    h17.cmdPrint('ping -c1', h18.IP())
+    h19.cmdPrint('ping -c1', h20.IP())
+    h21.cmdPrint('ping -c1', h22.IP())
+    h23.cmdPrint('ping -c1', h24.IP())
 
     sleep(10)
+       
+    PollController() #Poll the controller every 2secs for topology info and compare it with the previous array - if different delete some flows, install new flows and and reprovision disrupted flows
 
-    #Call Flow-Install Function
-
-#    connectionSet()
- 
-    print "Testing bandwidth between h1 and h2"
-    h1,h2 = net.getNodeByName('h1', 'h2')
-    net.iperf((h1, h2))
-
-    print "Testing bandwidth between h3 and h20"
-    h3,h20 = net.getNodeByName('h3', 'h20')
-    net.iperf((h3, h20))
-   
-    print "Tearing down Links between S1-S2 , S1-S6 , S3-S4 and S6-S9"
-    
-    net.configLinkStatus( 's1', 's2', 'down' )
-    net.configLinkStatus( 's1', 's6', 'down' )
-    net.configLinkStatus( 's3', 's4', 'down' )
-    net.configLinkStatus( 's6', 's9', 'down' )
-
-    sleep(100)
-    #empty Wd.txt
-    #Delete 10 exisiting flows and reprovision other 10 flows using Install-Flows.py with different 10conections.txt
-    #Empty Wd.txt
-    #Add 20 new connections using Install-Flows.py with new 20connection.txt file
-    
-    #print "Restoring Links between S1-S2 , S1-S6 , S3-S4 and S6-S9"
-    
-    #net.configLinkStatus( 's1', 's2', 'up' )
-    #net.configLinkStatus( 's1', 's6', 'up' )
-    #net.configLinkStatus( 's3', 's4', 'up' )
-    #net.configLinkStatus( 's6', 's9', 'up' )
-    
-    #sleep(100)
-    #empty Wd.txt
-    #Delete 10 exisiting flows and reprovision other 10 flows using Install-Flows.py with different 10conections.txt
-    #Empty Wd.txt
-    #Add 20 new connections using Install-Flows.py with new 20connection.txt file
-    
-    #print "Tearing down Links between S5-S7 , S8-S10 , S11-S12 and S16-S17"
-    
-    #net.configLinkStatus( 's1', 's2', 'down' )
-    #net.configLinkStatus( 's1', 's6', 'down' )
-    #net.configLinkStatus( 's3', 's4', 'down' )
-    #net.configLinkStatus( 's6', 's9', 'down' )
-
-    #sleep(100)
-    #empty Wd.txt
-    #Delete 10 exisiting flows and reprovision other 10 flows using Install-Flows.py with different 10conections.txt
-    #Empty Wd.txt
-    #Add 20 new connections using Install-Flows.py with new 20connection.txt file
-
-    #print "Restoring Links between S1-S2 , S1-S6 , S3-S4 and S6-S9"
-
-    #net.configLinkStatus( 's1', 's2', 'up' )
-    #net.configLinkStatus( 's1', 's6', 'up' )
-    #net.configLinkStatus( 's3', 's4', 'up' )
-    #net.configLinkStatus( 's6', 's9', 'up' )
-    
-    #sleep(100)
-    
-
-    net.ping((h1, h2))
-    net.ping((h3, h20))
-    net.ping((h4, h12))
-    net.ping((h11, h19))
-    net.ping((h13, h22))
-    net.ping((h16, h20))
-    net.ping((h17, h23))
-    net.ping((h18, h21))
-    net.ping((h22, h24))
+    open('/home/mininet/mininet/custom/Mymininet/FlowCount.txt', 'w').close()                   
 
     print "*** Running CLI"
     CLI( net )
 
 if __name__ == '__main__':
     setLogLevel('info')
-    perfTest()
+    ODL()

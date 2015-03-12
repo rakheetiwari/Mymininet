@@ -1,5 +1,4 @@
 """Custom topology example"""
-
 from mininet.topo import Topo
 from functools import partial
 from mininet.net import Mininet
@@ -11,8 +10,12 @@ from mininet.util import dumpNodeConnections
 from mininet.node import RemoteController
 from mininet.link import TCIntf
 from mininet.util import custom
+from odl_rest import *
 from time import sleep
-
+import random
+import os
+import operator
+ 
 class MyTopo( Topo ):
     "Simple topology example."
 
@@ -21,7 +24,7 @@ class MyTopo( Topo ):
 
         # Initialize topology
         Topo.__init__( self )
-
+        
         # Add hosts and switches
         h1 = self.addHost( 'h1', ip='10.0.1.1/24', defaultRoute='via 10.0.1.1', sched='rt' )
         h2 = self.addHost( 'h2', ip='10.0.2.1/24', defaultRoute='via 10.0.2.1', sched='rt' )
@@ -72,8 +75,6 @@ class MyTopo( Topo ):
         s22 = [ self.addSwitch( 's22', dpid="0000000000000022")]
         s23 = [ self.addSwitch( 's23', dpid="0000000000000023")]
         s24 = [ self.addSwitch( 's24', dpid="0000000000000024")]
-
-
 
         # Add links
 
@@ -145,27 +146,120 @@ class MyTopo( Topo ):
         self.addLink( 's22', 's23', bw=10, delay='5ms', max_queue_size=1000 )
         self.addLink( 's23', 's24', bw=10, delay='5ms', max_queue_size=1000 )
 
+Links_Discard = []
+
+def connectionSet():
+    with open('/home/mininet/mininet/custom/Mymininet/20connections.txt', 'r') as content_file:
+     for line in content_file:
+            data = line.strip().split(",")
+            node_id_1 = data[0]
+            node_id_2 = data[1]           
+            node_id_1 =  node_id_1.split(':')
+            node_id_2 =  node_id_2.split(':')
+            node_id_1 =  node_id_1[-1].lstrip("0")
+            node_id_2 =  node_id_2[-1].lstrip("0")
+            print "Testing bandwidth between " + node_id_1 + " and " + node_id_2
+            node_id_1 = 'h'+node_id_1                      
+            node_id_2 = 'h'+node_id_2
+            h1,h2 = net.getNodeByName(node_id_1, node_id_2)
+            bandwidth = net.iperf((h1, h2))
+            print bandwidth
+
+def configLinkDown():    
+    with open('/home/mininet/mininet/custom/Mymininet/disastersWMD_ATT.txt', 'r') as content_file:
+        linedict = {}
+        for line in content_file:
+            data = line.strip().split(",")            
+            links, prob = data[1:-1], data[-1] 
+            links = [links[i:i+2] for i in range(0, len(links), 2)]
+            
+            for i in range(0, len(links), 1):  #for iterating each elemnet in links by incrementing 1 at a time
+                if tuple(links[i]) not in linedict: # checking whether element is already present in dictionary or not
+                   linedict[tuple(links[i])] = [prob] #if not present then add it
+                else: #if already present then add value of already present key in dictionary using append function
+                   linedict[tuple(links[i])].append(prob)                
+        for key in linedict.keys(): #iterating each key in dictionary
+             linedict[key]=sum(map(float, linedict[key])) #map function is used for converting each string element to float value and then taking sum of all values        
+        counter = 0
+        linedict = sorted(linedict.iteritems(), key=operator.itemgetter(1),reverse=True)
+                
+        for w in random.sample(linedict,3):          
+            node_id_1 = 's'+w[0][0]
+            node_id_2 = 's'+w[0][1]                
+            Links_List= []
+            links_tuple = ()
+            Links_List.append(node_id_1)
+            Links_List.append(node_id_2)
+ 
+            links_tuple = tuple(Links_List)        
+            Links_Discard.append(links_tuple)
+            print "Tearing down the link between " + node_id_1 + " and " + node_id_2 
+            net.configLinkStatus( node_id_1, node_id_2, 'down' )
+        
+def configLinkUp():
+            
+          for i in range(len(Links_Discard)):
+                        
+            node_id_1 = Links_Discard[i][0]
+            node_id_2 = Links_Discard[i][1]
+
+            print "Restoring the link between " + node_id_1 + " and " + node_id_2
+            net.configLinkStatus( node_id_1, node_id_2, 'up' )
+
 def perfTest():
     topo = MyTopo()
+    global net
     net = Mininet(topo, controller=partial(RemoteController, ip='192.168.1.1', port=6633), link=TCLink, host=CPULimitedHost)
     net.start()
     print "Dumping host connections"
     dumpNodeConnections(net.hosts)
-    
-#    print "Link turning down between S2 and S3"
-#   net.configLinkStatus( 's2', 's3', 'down' )
 
-    sleep(10)
+    sleep(5)
 
     print "Testing network connectivity"
-    net.pingAll()
-   
-    sleep(50)
-    
-    print "Testing bandwidth between h1 and h2"
     h1,h2 = net.getNodeByName('h1', 'h2')
+    h3,h4 = net.getNodeByName('h3', 'h4')
+    h5,h6 = net.getNodeByName('h5', 'h6')
+    h7,h8 = net.getNodeByName('h7', 'h8')
+    h9,h10 = net.getNodeByName('h9', 'h10')
+    h11,h12 = net.getNodeByName('h11', 'h12')
+    h13,h14 = net.getNodeByName('h13', 'h14')
+    h15,h16 = net.getNodeByName('h15', 'h16')
+    h17,h18 = net.getNodeByName('h17', 'h18')
+    h19,h20 = net.getNodeByName('h19', 'h20')
+    h21,h22 = net.getNodeByName('h21', 'h22')
+    h23,h24 = net.getNodeByName('h23', 'h24')
     
-    net.iperf((h1, h2))
+    h1.cmdPrint('ping -c1', h2.IP()) 
+    h3.cmdPrint('ping -c1', h4.IP())
+    h5.cmdPrint('ping -c1', h6.IP())
+    h7.cmdPrint('ping -c1', h8.IP())
+    h9.cmdPrint('ping -c1', h10.IP())
+    h11.cmdPrint('ping -c1', h12.IP())
+    h13.cmdPrint('ping -c1', h14.IP())
+    h15.cmdPrint('ping -c1', h16.IP())
+    h17.cmdPrint('ping -c1', h18.IP())
+    h19.cmdPrint('ping -c1', h20.IP())
+    h21.cmdPrint('ping -c1', h22.IP())
+    h23.cmdPrint('ping -c1', h24.IP())
+
+    #h1.cmdPrint('iperf -t 5 -c', h1.IP())
+    
+    sleep(10)
+    print "Executing the program to for Installing Flows"
+    os.system('python Flow_Install.py')
+
+    connectionSet() #iPerf test
+ 
+    configLinkDown() #Tearing the link down
+
+    configLinkUp()
+    #Poll the controller for topology information and compare it with the previous array - if different delete some flows, install new flows and and reprovision disrupted flows
+    sleep(5)
+    
+    # configLinkup() #Bring the links backup and again poll the controller
+
+    #Repeat the above process again
 
     print "*** Running CLI"
     CLI( net )
